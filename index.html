@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Canteen Credits</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #EFECE6;
+    --surface: #FAF9F7;
+    --surface2: #E8E4DC;
+    --ink: #1C1A17;
+    --ink2: #6A6660;
+    --ink3: #A8A39C;
+    --accent: #D4521E;
+    --accent-bg: #FAE9E2;
+    --green: #2E7D52;
+    --green-bg: #E3F2EB;
+    --border: #DDD9D1;
+    --vendor: #1C2B3A;
+    --vendor-light: #E8EDF2;
+    --sans: 'Instrument Sans', sans-serif;
+    --display: 'Syne', sans-serif;
+    --r: 14px;
+    --r-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+  }
+  header {
+    width: 100%;
+    max-width: 480px;
+    padding: 24px 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-pip { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; flex-shrink: 0; }
+  .logo.vendor-mode .logo-pip { background: var(--vendor); }
+  .role-badge {
+    font-family: var(--display);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 100px;
+    display: none;
+  }
+  .role-badge.user { background: var(--accent-bg); color: var(--accent); display: block; }
+  .role-badge.vendor { background: var(--vendor-light); color: var(--vendor); display: block; }
+  main {
+    width: 100%;
+    max-width: 480px;
+    padding: 16px 16px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+  }
+  .screen { display: none; flex-direction: column; gap: 12px; }
+  .screen.active { display: flex; }
+  .card { background: var(--surface); border-radius: var(--r); border: 1px solid var(--border); }
+  .card-body { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+  .login-eyebrow {
+    font-family: var(--display);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink3);
+  }
+  .login-title { font-family: var(--display); font-size: 28px; font-weight: 700; line-height: 1.2; color: var(--ink); }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 12px; font-weight: 500; color: var(--ink2); letter-spacing: 0.02em; }
+  .input-wrap {
+    display: flex;
+    align-items: stretch;
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--surface);
+    transition: border-color 0.15s;
+    overflow: hidden;
+  }
+  .input-wrap:focus-within { border-color: var(--ink); }
+  .input-pre {
+    font-family: var(--display);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink2);
+    padding: 0 12px;
+    background: var(--surface2);
+    border-right: 1.5px solid var(--border);
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  input[type=tel], input[type=number] {
+    border: none; outline: none;
+    font-family: var(--display);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink);
+    background: transparent;
+    padding: 13px 14px;
+    width: 100%;
+    -moz-appearance: textfield;
+  }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .otp-row { display: flex; gap: 8px; }
+  .otp-d {
+    flex: 1; height: 54px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-sm);
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    color: var(--ink);
+    background: var(--surface);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .otp-d:focus { border-color: var(--ink); }
+  .btn {
+    height: 52px;
+    border-radius: var(--r-sm);
+    border: none;
+    cursor: pointer;
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: opacity 0.15s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .btn:active:not(:disabled) { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.38; cursor: not-allowed; }
+  .btn-ink { background: var(--ink); color: #fff; }
+  .btn-accent { background: var(--accent); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-vendor { background: var(--vendor); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--ink2); border: 1.5px solid var(--border); }
+  .link-btn {
+    background: none; border: none;
+    font-family: var(--sans);
+    font-size: 13px;
+    color: var(--ink3);
+    cursor: pointer;
+    text-align: center;
+    padding: 4px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .status { font-size: 13px; text-align: center; min-height: 16px; color: var(--ink2); }
+  .status.err { color: var(--accent); }
+  .status.ok { color: var(--green); }
+  .balance-hero {
+    background: var(--ink);
+    border-radius: var(--r);
+    padding: 28px 24px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .balance-hero::after {
+    content: '';
+    position: absolute;
+    bottom: -50px; right: -50px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.03);
+    pointer-events: none;
+  }
+  .bal-label { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.4); }
+  .bal-phone { font-family: var(--display); font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 4px; }
+  .bal-amount { font-family: var(--display); font-size: 52px; font-weight: 700; color: #fff; margin-top: 20px; line-height: 1; letter-spacing: -0.02em; }
+  .bal-currency { font-size: 24px; font-weight: 400; opacity: 0.6; vertical-align: super; margin-right: 3px; }
+  .qr-section { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .qr-label { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink3); }
+  .qr-hint { font-size: 12px; color: var(--ink3); text-align: center; }
+  .txn-head { padding: 14px 20px 10px; font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink3); border-bottom: 1px solid var(--border); }
+  .txn-item { display: flex; align-items: center; gap: 12px; padding: 13px 20px; border-bottom: 1px solid var(--border); }
+  .txn-item:last-child { border-bottom: none; }
+  .txn-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .txn-dot.topup { background: var(--green); }
+  .txn-dot.deduct { background: var(--accent); }
+  .txn-info { flex: 1; min-width: 0; }
+  .txn-type { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .txn-time { font-family: var(--display); font-size: 11px; color: var(--ink3); margin-top: 2px; }
+  .txn-amt { font-family: var(--display); font-size: 14px; font-weight: 700; flex-shrink: 0; }
+  .txn-amt.topup { color: var(--green); }
+  .txn-amt.deduct { color: var(--accent); }
+  .txn-empty { padding: 24px; text-align: center; font-size: 13px; color: var(--ink3); }
+  .vendor-hero { background: var(--vendor); border-radius: var(--r); padding: 28px 24px; display: flex; flex-direction: column; gap: 6px; }
+  .vendor-hero-label { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.4); }
+  .vendor-hero-title { font-family: var(--display); font-size: 22px; font-weight: 700; color: #fff; line-height: 1.2; }
+  .scan-btn {
+    background: var(--surface);
+    border: 2px dashed var(--border);
+    border-radius: var(--r);
+    padding: 36px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    width: 100%;
+  }
+  .scan-btn:hover { border-color: var(--vendor); background: var(--vendor-light); }
+  .scan-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--vendor-light); display: flex; align-items: center; justify-content: center; }
+  .scan-icon svg { width: 24px; height: 24px; stroke: var(--vendor); fill: none; stroke-width: 2; stroke-linecap: round; }
+  .scan-btn-label { font-family: var(--display); font-size: 15px; font-weight: 700; color: var(--vendor); }
+  .scan-btn-sub { font-size: 12px; color: var(--ink3); }
+  .vtxn-phone { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--ink); padding: 16px 20px 0; }
+  .vtxn-bal { font-size: 13px; color: var(--ink2); padding: 4px 20px 16px; border-bottom: 1px solid var(--border); }
+  .vtxn-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .action-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .action-opt { padding: 14px 12px; border-radius: var(--r-sm); border: 1.5px solid var(--border); background: var(--surface); cursor: pointer; text-align: center; transition: all 0.15s; }
+  .action-opt.sel-topup { border-color: var(--green); background: var(--green-bg); }
+  .action-opt.sel-deduct { border-color: var(--accent); background: var(--accent-bg); }
+  .action-opt-label { font-family: var(--display); font-size: 13px; font-weight: 700; color: var(--ink2); text-transform: uppercase; letter-spacing: 0.06em; }
+  .action-opt.sel-topup .action-opt-label { color: var(--green); }
+  .action-opt.sel-deduct .action-opt-label { color: var(--accent); }
+  .success-body { padding: 36px 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+  .success-pip { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .success-pip.topup { background: var(--green-bg); color: var(--green); }
+  .success-pip.deduct { background: var(--accent-bg); color: var(--accent); }
+  .success-title { font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--ink); }
+  .success-detail { font-size: 14px; color: var(--ink2); line-height: 1.6; white-space: pre-line; }
+  .success-pill { background: var(--surface2); border-radius: 100px; padding: 10px 20px; font-family: var(--display); font-size: 14px; font-weight: 700; color: var(--ink); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; display: none; flex-shrink: 0; }
+  #cam-overlay { display: none; position: fixed; inset: 0; background: #000; z-index: 100; flex-direction: column; }
+  #cam-overlay.active { display: flex; }
+  #cam-video { width: 100%; flex: 1; object-fit: cover; }
+  .cam-ui { padding: 20px; background: #000; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .cam-hint { color: rgba(255,255,255,0.6); font-size: 13px; text-align: center; }
+  .cam-close { background: rgba(255,255,255,0.1); border: none; color: #fff; font-family: var(--display); font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 14px 32px; border-radius: var(--r-sm); cursor: pointer; width: 100%; max-width: 400px; }
+  #recaptcha-container { display: none; }
+  footer { width: 100%; max-width: 480px; padding: 0 20px 20px; text-align: center; }
+  .footer-txt { font-family: var(--display); font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink3); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo" id="logo"><div class="logo-pip"></div>Canteen Credits</div>
+  <div class="role-badge" id="role-badge"></div>
+</header>
+
+<main>
+
+  <!-- SCREEN: Phone login -->
+  <div class="screen active" id="s-phone">
+    <div class="card card-body" style="gap:20px">
+      <div>
+        <div class="login-eyebrow">Welcome</div>
+        <div class="login-title" style="margin-top:6px">Enter your<br>phone number</div>
+      </div>
+      <div class="field">
+        <div class="field-label">Singapore mobile</div>
+        <div class="input-wrap">
+          <div class="input-pre">+65</div>
+          <input type="tel" id="ph-input" placeholder="9123 4567" maxlength="8" inputmode="numeric">
+        </div>
+      </div>
+      <div class="status" id="ph-status"></div>
+      <button class="btn btn-ink" id="ph-btn" onclick="sendOTP()">
+        <span id="ph-btn-txt">Send code</span>
+        <div class="spin" id="ph-spin"></div>
+      </button>
+    </div>
+    <div id="recaptcha-container"></div>
+  </div>
+
+  <!-- SCREEN: OTP verify -->
+  <div class="screen" id="s-otp">
+    <div class="card card-body" style="gap:20px">
+      <div>
+        <div class="login-eyebrow">Verification</div>
+        <div class="login-title" style="margin-top:6px;font-size:22px">Code sent to<br><span id="otp-ph" style="color:var(--accent)"></span></div>
+      </div>
+      <div class="field">
+        <div class="field-label">6-digit code</div>
+        <div class="otp-row">
+          <input class="otp-d" maxlength="1" inputmode="numeric" id="o0">
+          <input class="otp-d" maxlength="1" inputmode="numeric" id="o1">
+          <input class="otp-d" maxlength="1" inputmode="numeric" id="o2">
+          <input class="otp-d" maxlength="1" inputmode="numeric" id="o3">
+          <input class="otp-d" maxlength="1" inputmode="numeric" id="o4">
+          <input class="otp-d" maxlength="1" inputmode="numeric" id="o5">
+        </div>
+      </div>
+      <div class="status" id="otp-status"></div>
+      <button class="btn btn-ink" id="otp-btn" onclick="verifyOTP()">
+        <span id="otp-btn-txt">Verify</span>
+        <div class="spin" id="otp-spin"></div>
+      </button>
+      <button class="link-btn" onclick="show('s-phone')">← Change number</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: User dashboard -->
+  <div class="screen" id="s-user">
+    <div class="balance-hero">
+      <div class="bal-label">Available balance</div>
+      <div class="bal-phone" id="u-phone"></div>
+      <div class="bal-amount"><span class="bal-currency">$</span><span id="u-balance">—</span></div>
+    </div>
+    <div class="card">
+      <div class="qr-section">
+        <div class="qr-label">Your payment QR</div>
+        <div id="user-qr"></div>
+        <div class="qr-hint">Show this to the vendor at the counter</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="txn-head">Recent transactions</div>
+      <div id="u-txn-body"><div class="txn-empty">No transactions yet</div></div>
+    </div>
+    <button class="link-btn" onclick="doSignOut()">Sign out</button>
+  </div>
+
+  <!-- SCREEN: Vendor home -->
+  <div class="screen" id="s-vendor">
+    <div class="vendor-hero">
+      <div class="vendor-hero-label">Vendor mode</div>
+      <div class="vendor-hero-title">Scan customer<br>QR to transact</div>
+    </div>
+    <button class="scan-btn" onclick="openCamera()">
+      <div class="scan-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="3" height="3"/><rect x="18" y="14" width="3" height="3"/><rect x="14" y="18" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/></svg>
+      </div>
+      <div class="scan-btn-label">Scan customer QR</div>
+      <div class="scan-btn-sub">Tap to open camera</div>
+    </button>
+    <div class="status err" id="vendor-status"></div>
+    <button class="link-btn" onclick="doSignOut()">Sign out</button>
+  </div>
+
+  <!-- SCREEN: Vendor transaction -->
+  <div class="screen" id="s-vtxn">
+    <div class="card">
+      <div class="vtxn-phone" id="vt-phone"></div>
+      <div class="vtxn-bal" id="vt-bal"></div>
+      <div class="vtxn-body">
+        <div class="action-toggle">
+          <div class="action-opt sel-topup" id="opt-topup" onclick="selectAction('topup')">
+            <div class="action-opt-label">Top up</div>
+          </div>
+          <div class="action-opt" id="opt-deduct" onclick="selectAction('deduct')">
+            <div class="action-opt-label">Deduct</div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-label">Amount (SGD)</div>
+          <div class="input-wrap">
+            <div class="input-pre">$</div>
+            <input type="number" id="vt-amount" placeholder="0.00" step="0.01" min="0.01">
+          </div>
+        </div>
+        <div class="status" id="vt-status"></div>
+        <button class="btn btn-green" id="vt-btn" onclick="executeVendorTxn()">
+          <span id="vt-btn-txt">Confirm top-up</span>
+          <div class="spin" id="vt-spin"></div>
+        </button>
+        <button class="link-btn" onclick="show('s-vendor')">← Back</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Success -->
+  <div class="screen" id="s-success">
+    <div class="card">
+      <div class="success-body">
+        <div class="success-pip" id="suc-pip"></div>
+        <div class="success-title" id="suc-title"></div>
+        <div class="success-detail" id="suc-detail"></div>
+        <div class="success-pill" id="suc-bal"></div>
+        <button class="btn btn-vendor" style="margin-top:4px" onclick="show('s-vendor')">Next customer</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Camera overlay -->
+<div id="cam-overlay">
+  <video id="cam-video" autoplay playsinline muted></video>
+  <div class="cam-ui">
+    <div class="cam-hint">Point camera at customer's QR code</div>
+    <button class="cam-close" onclick="closeCamera()">Cancel</button>
+  </div>
+</div>
+
+<footer><div class="footer-txt">Secured by Firebase · QR verified</div></footer>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import QRCode from "https://esm.sh/qrcode@1.5.3";
+
+// ── PASTE YOUR FIREBASE CONFIG HERE ────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCJkbavzdgp0VaFn_MxqY92FKNym5W9kIQ",
+  authDomain: "ace-credit-hilltop-cafe.firebaseapp.com",
+  projectId: "ace-credit-hilltop-cafe",
+  storageBucket: "ace-credit-hilltop-cafe.firebasestorage.app",
+  messagingSenderId: "225369618817",
+  appId: "1:225369618817:web:18f8ef2f9874591f505080",
+  measurementId: "G-NPGJ20NW50"
+};
+// ───────────────────────────────────────────────────────────────────────────
+
+// ── VENDOR PHONE — update if number changes ────────────────────────────────
+const VENDOR_PHONES = ['+6591396391', '+6591127986'];
+// ───────────────────────────────────────────────────────────────────────────
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+const $      = id => document.getElementById(id);
+const cents  = s  => Math.round(parseFloat(s) * 100);
+const fmt    = c  => (c / 100).toFixed(2);
+const fmtPh  = n  => `+65 ${String(n).slice(0,4)} ${String(n).slice(4)}`;
+
+window.show = id => {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+};
+
+function setStatus(id, msg, type = '') {
+  const el = $(id);
+  el.textContent = msg;
+  el.className = 'status' + (type ? ' ' + type : '');
+}
+
+function setLoading(txtId, spinId, btnId, on) {
+  $(txtId).style.display = on ? 'none' : '';
+  $(spinId).style.display = on ? 'block' : 'none';
+  if (btnId) $(btnId).disabled = on;
+}
+
+function getOTP() { return [0,1,2,3,4,5].map(i => $('o'+i).value).join(''); }
+function clearOTP() { [0,1,2,3,4,5].forEach(i => { $('o'+i).value = ''; }); $('o0').focus(); }
+
+[0,1,2,3,4,5].forEach(i => {
+  $('o'+i).addEventListener('input',   e => { if (e.target.value && i < 5) $('o'+(i+1)).focus(); });
+  $('o'+i).addEventListener('keydown', e => { if (e.key === 'Backspace' && !e.target.value && i > 0) $('o'+(i-1)).focus(); });
+});
+
+let vendorAction = 'topup';
+window.selectAction = type => {
+  vendorAction = type;
+  $('opt-topup').className  = 'action-opt' + (type === 'topup'  ? ' sel-topup'  : '');
+  $('opt-deduct').className = 'action-opt' + (type === 'deduct' ? ' sel-deduct' : '');
+  $('vt-btn').className     = 'btn ' + (type === 'topup' ? 'btn-green' : 'btn-accent');
+  $('vt-btn-txt').textContent = type === 'topup' ? 'Confirm top-up' : 'Confirm deduction';
+  setStatus('vt-status', '');
+};
+
+let confResult  = null;
+let scannedUID  = null;
+let camStream   = null;
+let scanInterval = null;
+
+// ── Auth state → route to correct interface ──
+onAuthStateChanged(auth, async user => {
+  if (!user) { show('s-phone'); return; }
+
+  if (VENDOR_PHONES.includes(user.phoneNumber)) {
+    // ── Vendor ──
+    $('role-badge').textContent = 'Vendor';
+    $('role-badge').className   = 'role-badge vendor';
+    $('logo').classList.add('vendor-mode');
+    show('s-vendor');
+
+  } else {
+    // ── Customer — create Firestore doc on first login ──
+    const ref  = doc(db, 'users', user.uid);
+    let   snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        phone:        user.phoneNumber,
+        balanceCents: 0,
+        createdAt:    serverTimestamp()
+      });
+      snap = await getDoc(ref);
+    }
+    await renderUserDash(user, snap.data());
+  }
+});
+
+// ── Customer dashboard ──
+async function renderUserDash(user, data) {
+  const raw = data.phone.replace('+65', '');
+  $('role-badge').textContent = 'Customer';
+  $('role-badge').className   = 'role-badge user';
+  $('u-phone').textContent    = fmtPh(raw);
+  $('u-balance').textContent  = fmt(data.balanceCents || 0);
+
+  // QR code — encodes Firebase UID (no personal data)
+  const wrap = $('user-qr');
+  wrap.innerHTML = '';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  await QRCode.toCanvas(canvas, user.uid, {
+    width: 200, margin: 2,
+    color: { dark: '#1C1A17', light: '#FAF9F7' }
+  });
+
+  // Transaction history
+  const q     = query(collection(db, 'users', user.uid, 'transactions'), orderBy('createdAt', 'desc'), limit(10));
+  const snaps = await getDocs(q);
+  const body  = $('u-txn-body');
+  if (snaps.empty) {
+    body.innerHTML = '<div class="txn-empty">No transactions yet</div>';
+  } else {
+    body.innerHTML = snaps.docs.map(d => {
+      const t     = d.data();
+      const isTop = t.type === 'topup';
+      const ts    = t.createdAt
+        ? new Date(t.createdAt.seconds * 1000).toLocaleString('en-SG', { dateStyle: 'short', timeStyle: 'short' })
+        : '—';
+      return `<div class="txn-item">
+        <div class="txn-dot ${t.type}"></div>
+        <div class="txn-info">
+          <div class="txn-type">${isTop ? 'Top-up' : 'Deduction'}</div>
+          <div class="txn-time">${ts}</div>
+        </div>
+        <div class="txn-amt ${t.type}">${isTop ? '+' : '-'}$${fmt(t.amountCents)}</div>
+      </div>`;
+    }).join('');
+  }
+  show('s-user');
+}
+
+// ── Camera / QR scan ──
+window.openCamera = async () => {
+  setStatus('vendor-status', '');
+  $('cam-overlay').classList.add('active');
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    $('cam-video').srcObject = camStream;
+    await new Promise(r => { $('cam-video').onloadedmetadata = r; });
+    startScanLoop();
+  } catch (e) {
+    closeCamera();
+    setStatus('vendor-status', 'Camera access denied. Please allow camera permission.', 'err');
+  }
+};
+
+function startScanLoop() {
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+  s.onload = () => {
+    const canvas = document.createElement('canvas');
+    const ctx    = canvas.getContext('2d');
+    scanInterval = setInterval(() => {
+      const video = $('cam-video');
+      if (!video.videoWidth) return;
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      const img    = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const result = window.jsQR && window.jsQR(img.data, img.width, img.height);
+      if (result && result.data) {
+        clearInterval(scanInterval); scanInterval = null;
+        closeCamera();
+        loadCustomer(result.data);
+      }
+    }, 300);
+  };
+  document.head.appendChild(s);
+}
+
+window.closeCamera = () => {
+  $('cam-overlay').classList.remove('active');
+  if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+  if (camStream)    { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+};
+
+async function loadCustomer(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (!snap.exists()) {
+      setStatus('vendor-status', 'Customer account not found. They may need to log in first.', 'err');
+      return;
+    }
+    const data = snap.data();
+    scannedUID = uid;
+    $('vt-phone').textContent = fmtPh(data.phone.replace('+65', ''));
+    $('vt-bal').textContent   = `Current balance: $${fmt(data.balanceCents || 0)}`;
+    $('vt-amount').value      = '';
+    selectAction('topup');
+    setStatus('vt-status', '');
+    show('s-vtxn');
+  } catch (e) {
+    setStatus('vendor-status', 'Error reading QR. Please try again.', 'err');
+  }
+}
+
+// ── Vendor: execute transaction ──
+window.executeVendorTxn = async () => {
+  const amtCents = cents($('vt-amount').value);
+  if (!amtCents || amtCents <= 0) { setStatus('vt-status', 'Enter a valid amount.', 'err'); return; }
+  if (!scannedUID)                { setStatus('vt-status', 'No customer loaded.', 'err'); return; }
+
+  setLoading('vt-btn-txt', 'vt-spin', 'vt-btn', true);
+  setStatus('vt-status', '');
+
+  try {
+    const ref  = doc(db, 'users', scannedUID);
+    const snap = await getDoc(ref);
+    const data = snap.data();
+    let newBal;
+
+    if (vendorAction === 'topup') {
+      newBal = (data.balanceCents || 0) + amtCents;
+    } else {
+      if ((data.balanceCents || 0) < amtCents) {
+        setStatus('vt-status', `Insufficient balance. Current: $${fmt(data.balanceCents || 0)}`, 'err');
+        setLoading('vt-btn-txt', 'vt-spin', 'vt-btn', false);
+        return;
+      }
+      newBal = data.balanceCents - amtCents;
+    }
+
+    await updateDoc(ref, { balanceCents: newBal });
+    await addDoc(collection(db, 'users', scannedUID, 'transactions'), {
+      type:               vendorAction,
+      amountCents:        amtCents,
+      balanceAfterCents:  newBal,
+      createdAt:          serverTimestamp()
+    });
+
+    const isTop = vendorAction === 'topup';
+    $('suc-pip').className      = 'success-pip ' + vendorAction;
+    $('suc-pip').textContent    = isTop ? '↑' : '↓';
+    $('suc-title').textContent  = isTop ? 'Top-up done' : 'Deduction done';
+    $('suc-detail').textContent = `${isTop ? '+' : '-'}$${fmt(amtCents)}\n${$('vt-phone').textContent}`;
+    $('suc-bal').textContent    = `New balance: $${fmt(newBal)}`;
+    scannedUID = null;
+    show('s-success');
+
+  } catch (e) {
+    setStatus('vt-status', e.message || 'Transaction failed. Please try again.', 'err');
+  }
+
+  setLoading('vt-btn-txt', 'vt-spin', 'vt-btn', false);
+};
+
+// ── OTP login ──
+window.sendOTP = async () => {
+  const raw = $('ph-input').value.replace(/\s/g, '');
+  if (raw.length !== 8 || !/^\d+$/.test(raw)) {
+    setStatus('ph-status', 'Enter a valid 8-digit number.', 'err'); return;
+  }
+  setStatus('ph-status', '');
+  setLoading('ph-btn-txt', 'ph-spin', 'ph-btn', true);
+  try {
+    if (!window._rcv) {
+      window._rcv = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' });
+    }
+    confResult = await signInWithPhoneNumber(auth, '+65' + raw, window._rcv);
+    $('otp-ph').textContent = fmtPh(raw);
+    clearOTP();
+    setStatus('otp-status', '');
+    show('s-otp');
+  } catch (e) {
+    setStatus('ph-status', 'Failed to send code. Please try again.', 'err');
+    if (window._rcv) { window._rcv.clear(); window._rcv = null; }
+  }
+  setLoading('ph-btn-txt', 'ph-spin', 'ph-btn', false);
+};
+
+window.verifyOTP = async () => {
+  const code = getOTP();
+  if (code.length !== 6) { setStatus('otp-status', 'Enter all 6 digits.', 'err'); return; }
+  setStatus('otp-status', '');
+  setLoading('otp-btn-txt', 'otp-spin', 'otp-btn', true);
+  try {
+    await confResult.confirm(code);
+    // onAuthStateChanged handles routing automatically
+  } catch (e) {
+    setStatus('otp-status', 'Invalid code. Please try again.', 'err');
+    setLoading('otp-btn-txt', 'otp-spin', 'otp-btn', false);
+  }
+};
+
+window.doSignOut = async () => {
+  await signOut(auth);
+  $('role-badge').className = 'role-badge';
+  $('logo').classList.remove('vendor-mode');
+  $('ph-input').value = '';
+  setStatus('ph-status', '');
+  show('s-phone');
+};
+</script>
+
+</body>
+</html>
