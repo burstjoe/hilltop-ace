@@ -348,21 +348,7 @@
 
   <!-- SCREEN: User dashboard -->
   <div class="screen" id="s-user">
-    <div class="balance-hero">
-      <div class="bal-label">Account</div>
-      <div class="bal-phone" id="u-phone"></div>
-      <div class="bal-hidden" id="u-balance-hidden">••••••</div>
-      <div class="bal-amount" id="u-balance-shown" style="display:none"><span class="bal-currency">$</span><span id="u-balance">—</span></div>
-      <button class="bal-toggle" id="bal-toggle-btn" onclick="toggleBalance()">Show balance</button>
-    </div>
-    <div class="card">
-      <div class="qr-section">
-        <div class="qr-label">Your payment QR</div>
-        <div id="user-qr"></div>
-        <div class="qr-hint">Show this to the vendor to top up</div>
-      </div>
-    </div>
-    <!-- Deduct section -->
+    <!-- Deduct — top of page -->
     <div class="card card-body" style="gap:16px">
       <div style="font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink2)">Pay with credits</div>
       <div class="field">
@@ -378,13 +364,40 @@
         <div class="spin" id="user-deduct-spin"></div>
       </button>
     </div>
+    <!-- Account info row -->
+    <div class="card card-body" style="gap:12px;flex-direction:row;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-family:var(--display);font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink3)">Account</div>
+        <div style="font-family:var(--display);font-size:15px;font-weight:500;color:var(--ink);margin-top:4px" id="u-phone"></div>
+      </div>
+      <button class="btn btn-ghost" style="width:auto;padding:0 18px;height:40px;font-size:12px" onclick="show('s-balance')">View balance</button>
+    </div>
+    <!-- QR for top-up -->
+    <div class="card">
+      <div class="qr-section">
+        <div class="qr-label">Your payment QR</div>
+        <div id="user-qr"></div>
+        <div class="qr-hint">Show this to the vendor to top up</div>
+      </div>
+    </div>
+    <!-- Transaction history -->
     <div class="card">
       <div class="txn-head">Recent transactions</div>
       <div id="u-txn-body"><div class="txn-empty">No transactions yet</div></div>
     </div>
-    <!-- Shown only to vendor accounts in preview mode -->
     <button class="link-btn" id="switch-to-vendor-btn" style="display:none" onclick="togglePreviewMode()">← Switch to vendor view</button>
     <button class="link-btn" onclick="doSignOut()">Sign out</button>
+  </div>
+
+  <!-- SCREEN: Balance -->
+  <div class="screen" id="s-balance">
+    <div class="card card-body" style="gap:8px;align-items:center;padding:48px 24px">
+      <div style="font-family:var(--display);font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink3)">Current balance</div>
+      <div style="font-family:var(--display);font-size:13px;color:var(--ink2);margin-bottom:8px" id="bal-screen-phone"></div>
+      <div style="font-family:var(--display);font-size:56px;font-weight:700;line-height:1;letter-spacing:-0.02em" id="bal-screen-amount">—</div>
+      <div style="font-size:12px;color:var(--ink3);margin-top:8px" id="bal-screen-note"></div>
+    </div>
+    <button class="link-btn" onclick="show('s-user')">← Back</button>
   </div>
   <div class="screen" id="s-vendor">
     <div class="vendor-hero">
@@ -592,14 +605,45 @@ window.togglePreviewMode = async () => {
   }
 };
 
-// ── Balance visibility toggle ──
-let balanceVisible = false;
-window.toggleBalance = () => {
-  balanceVisible = !balanceVisible;
-  $('u-balance-hidden').style.display = balanceVisible ? 'none' : 'block';
-  $('u-balance-shown').style.display  = balanceVisible ? 'block' : 'none';
-  $('bal-toggle-btn').textContent     = balanceVisible ? 'Hide balance' : 'Show balance';
-};
+// ── Update balance screen ──
+function updateBalanceScreen(phone, balanceCents) {
+  const raw = phone.replace('+65', '');
+  const neg = balanceCents < 0;
+  $('bal-screen-phone').textContent  = fmtPh(raw);
+  $('bal-screen-amount').textContent = (neg ? '-$' : '$') + fmt(Math.abs(balanceCents));
+  $('bal-screen-amount').style.color = neg ? 'var(--accent)' : 'var(--ink)';
+  $('bal-screen-note').textContent   = neg ? 'Balance owed to canteen' : '';
+}
+
+// ── Shared transaction list renderer ──
+function renderTxnList(snaps) {
+  const body = $('u-txn-body');
+  if (snaps.empty) {
+    body.innerHTML = '<div class="txn-empty">No transactions yet</div>'; return;
+  }
+  body.innerHTML = snaps.docs.map(d => {
+    const t   = d.data();
+    const ts  = t.createdAt
+      ? new Date(t.createdAt.seconds * 1000).toLocaleString('en-SG', { dateStyle: 'short', timeStyle: 'short' })
+      : '—';
+    let dotClass, label, amtClass, amtStr;
+    if (t.type === 'topup') {
+      dotClass = 'topup'; label = 'Top-up'; amtClass = 'topup'; amtStr = `+$${fmt(t.amountCents)}`;
+    } else if (t.type === 'reset') {
+      dotClass = 'reset'; label = 'Balance reset'; amtClass = 'topup'; amtStr = `→ $0.00`;
+    } else {
+      dotClass = 'deduct'; label = 'Deduction'; amtClass = 'deduct'; amtStr = `-$${fmt(t.amountCents)}`;
+    }
+    return `<div class="txn-item">
+      <div class="txn-dot ${dotClass}"></div>
+      <div class="txn-info">
+        <div class="txn-type">${label}</div>
+        <div class="txn-time">${ts}</div>
+      </div>
+      <div class="txn-amt ${amtClass}">${amtStr}</div>
+    </div>`;
+  }).join('');
+}
 
 // ── Customer dashboard ──
 async function renderUserDash(user) {
@@ -615,27 +659,16 @@ async function renderUserDash(user) {
   }
   const data = snap.data();
   const raw  = data.phone.replace('+65', '');
-  const bal  = data.balanceCents || 0;
 
   $('role-badge').textContent = 'Customer';
   $('role-badge').className   = 'role-badge user';
   $('logo').classList.remove('vendor-mode');
   $('u-phone').textContent    = fmtPh(raw);
 
-  // Balance display — hidden by default, coloured red if negative
-  const balEl = $('u-balance');
-  balEl.textContent = fmt(Math.abs(bal));
-  const balShown = $('u-balance-shown');
-  balShown.querySelector('.bal-currency').textContent = bal < 0 ? '-$' : '$';
-  balShown.className = 'bal-amount' + (bal < 0 ? ' negative' : '');
+  // Prep balance screen with current data
+  updateBalanceScreen(data.phone, data.balanceCents || 0);
 
-  // Reset visibility state on each dashboard load
-  balanceVisible = false;
-  $('u-balance-hidden').style.display = 'block';
-  $('u-balance-shown').style.display  = 'none';
-  $('bal-toggle-btn').textContent     = 'Show balance';
-
-  // Show "Switch to vendor view" only for vendor accounts in preview mode
+  // Show vendor toggle only for vendor accounts in preview mode
   $('switch-to-vendor-btn').style.display =
     VENDOR_PHONES.includes(user.phoneNumber) ? 'block' : 'none';
 
@@ -656,33 +689,7 @@ async function renderUserDash(user) {
   // Transaction history
   const q     = query(collection(db, 'users', user.uid, 'transactions'), orderBy('createdAt', 'desc'), limit(10));
   const snaps = await getDocs(q);
-  const body  = $('u-txn-body');
-  if (snaps.empty) {
-    body.innerHTML = '<div class="txn-empty">No transactions yet</div>';
-  } else {
-    body.innerHTML = snaps.docs.map(d => {
-      const t   = d.data();
-      const ts  = t.createdAt
-        ? new Date(t.createdAt.seconds * 1000).toLocaleString('en-SG', { dateStyle: 'short', timeStyle: 'short' })
-        : '—';
-      let dotClass, label, amtClass, amtStr;
-      if (t.type === 'topup') {
-        dotClass = 'topup'; label = 'Top-up'; amtClass = 'topup'; amtStr = `+$${fmt(t.amountCents)}`;
-      } else if (t.type === 'reset') {
-        dotClass = 'reset'; label = 'Balance reset'; amtClass = 'topup'; amtStr = `→ $0.00`;
-      } else {
-        dotClass = 'deduct'; label = 'Deduction'; amtClass = 'deduct'; amtStr = `-$${fmt(t.amountCents)}`;
-      }
-      return `<div class="txn-item">
-        <div class="txn-dot ${dotClass}"></div>
-        <div class="txn-info">
-          <div class="txn-type">${label}</div>
-          <div class="txn-time">${ts}</div>
-        </div>
-        <div class="txn-amt ${amtClass}">${amtStr}</div>
-      </div>`;
-    }).join('');
-  }
+  renderTxnList(snaps);
   show('s-user');
 }
 
@@ -708,9 +715,14 @@ window.userDeduct = async () => {
     });
     await pruneTransactions(user.uid);
 
-    // Refresh dashboard with updated data
-    await renderUserDash(user);
+    // Update transaction history and balance screen in place — no full re-render
+    $('user-deduct-amount').value = '';
     setStatus('user-deduct-status', `Deducted $${fmt(amtCents)} successfully.`, 'ok');
+    updateBalanceScreen(data.phone, newBal);
+    // Refresh transaction list only
+    const q     = query(collection(db, 'users', user.uid, 'transactions'), orderBy('createdAt', 'desc'), limit(10));
+    const snaps = await getDocs(q);
+    renderTxnList(snaps);
   } catch (e) {
     setStatus('user-deduct-status', e.message || 'Deduction failed. Try again.', 'err');
   }
@@ -733,9 +745,7 @@ window.openCamera = async () => {
 };
 
 function startScanLoop() {
-  const s = document.createElement('script');
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
-  s.onload = () => {
+  function beginScanning() {
     const canvas = document.createElement('canvas');
     const ctx    = canvas.getContext('2d');
     scanInterval = setInterval(() => {
@@ -752,7 +762,12 @@ function startScanLoop() {
         loadCustomer(result.data);
       }
     }, 300);
-  };
+  }
+  // If jsQR already loaded from a previous scan, start immediately
+  if (window.jsQR) { beginScanning(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js';
+  s.onload = beginScanning;
   document.head.appendChild(s);
 }
 
@@ -879,16 +894,21 @@ window.executeReset = async () => {
   setStatus('reset-status', '');
   try {
     const ref = doc(db, 'users', resetUID);
+    // Update balance first — always succeeds with vendor rules
     await updateDoc(ref, { balanceCents: 0 });
-    await addDoc(collection(db, 'users', resetUID, 'transactions'), {
-      type:              'reset',
-      amountCents:       0,
-      balanceAfterCents: 0,
-      createdAt:         serverTimestamp()
-    });
-    await pruneTransactions(resetUID);
+    // Write reset transaction — requires updated Firestore rules (see README)
+    try {
+      await addDoc(collection(db, 'users', resetUID, 'transactions'), {
+        type:              'reset',
+        amountCents:       0,
+        balanceAfterCents: 0,
+        createdAt:         serverTimestamp()
+      });
+      await pruneTransactions(resetUID);
+    } catch (_) {
+      // Transaction record failed silently — balance reset still succeeded
+    }
     resetUID = null;
-    // Refresh debt list
     await showDebtList();
   } catch (e) {
     setStatus('reset-status', e.message || 'Reset failed. Try again.', 'err');
