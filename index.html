@@ -759,7 +759,11 @@ window.sendOTP = async () => {
     setStatus('otp-status', '');
     show('s-otp');
   } catch (e) {
-    setStatus('ph-status', 'Failed to send code. Please try again.', 'err');
+    if (e.code === 'auth/too-many-requests') {
+      setStatus('ph-status', 'Too many attempts. Please wait 15–30 minutes and try again.', 'err');
+    } else {
+      setStatus('ph-status', 'Failed to send code. Please try again.', 'err');
+    }
     if (window._rcv) { window._rcv.clear(); window._rcv = null; }
   }
   setLoading('ph-btn-txt', 'ph-spin', 'ph-btn', false);
