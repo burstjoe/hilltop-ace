@@ -490,7 +490,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import QRCode from "https://esm.sh/qrcode@1.5.3";
 import { BrowserQRCodeReader } from "https://esm.sh/@zxing/browser@0.1.5";
 
@@ -637,6 +637,7 @@ async function renderUserDash(user) {
   }
   const data = snap.data();
   const raw  = data.phone.replace('+65', '');
+  cachedUserData = data;  // cache for use in userDeduct without re-read
 
   $('role-badge').textContent = 'Customer';
   $('role-badge').className   = 'role-badge user';
@@ -667,18 +668,36 @@ async function renderUserDash(user) {
   show('s-user');
 }
 
+// ── Cached user data — set on login, updated on each deduction ──
+let cachedUserData = null;
+
+// ── Debtors index helpers ──
+const debtorsRef = () => doc(db, 'meta', 'debtors');
+
+async function addDebtor(uid) {
+  try {
+    await setDoc(debtorsRef(), { uids: arrayUnion(uid) }, { merge: true });
+  } catch (_) {}
+}
+
+async function removeDebtor(uid) {
+  try {
+    await updateDoc(debtorsRef(), { uids: arrayRemove(uid) });
+  } catch (_) {}
+}
+
 // ── User self-deduct ──
 window.userDeduct = async () => {
   const amtCents = cents($('user-deduct-amount').value);
   if (!amtCents || amtCents <= 0) { setStatus('user-deduct-status', 'Enter a valid amount.', 'err'); return; }
+  if (!cachedUserData) { setStatus('user-deduct-status', 'Session error. Please refresh.', 'err'); return; }
   setLoading('user-deduct-btn-txt', 'user-deduct-spin', null, true);
   setStatus('user-deduct-status', '');
   try {
-    const user = auth.currentUser;
-    const ref  = doc(db, 'users', user.uid);
-    const snap = await getDoc(ref);
-    const data = snap.data();
-    const newBal = (data.balanceCents || 0) - amtCents;
+    const user   = auth.currentUser;
+    const ref    = doc(db, 'users', user.uid);
+    const curBal = cachedUserData.balanceCents || 0;
+    const newBal = curBal - amtCents;
 
     await updateDoc(ref, { balanceCents: newBal });
     await addDoc(collection(db, 'users', user.uid, 'transactions'), {
@@ -689,10 +708,17 @@ window.userDeduct = async () => {
     });
     await pruneTransactions(user.uid);
 
-    // Update transaction history and balance screen in place — no full re-render
+    // Update debtors index
+    if (newBal < 0 && curBal >= 0) await addDebtor(user.uid);    // just went negative
+    if (newBal >= 0 && curBal < 0) await removeDebtor(user.uid); // came back positive (edge case)
+
+    // Update cache
+    cachedUserData.balanceCents = newBal;
+
+    // Update UI in place — no Firestore re-read needed
     $('user-deduct-amount').value = '';
     setStatus('user-deduct-status', `Deducted $${fmt(amtCents)} successfully.`, 'ok');
-    updateBalanceScreen(data.phone, newBal);
+    updateBalanceScreen(cachedUserData.phone, newBal);
     // Refresh transaction list only
     const q     = query(collection(db, 'users', user.uid, 'transactions'), orderBy('createdAt', 'desc'), limit(10));
     const snaps = await getDocs(q);
@@ -767,12 +793,13 @@ async function loadCustomer(uid) {
 }
 
 // ── Prune transactions to max 10 per user ──
+// We always write before pruning so there are at most 11 docs.
+// Fetch oldest 11 asc — if we got 11, the first one is excess, delete it.
 async function pruneTransactions(uid) {
-  const q     = query(collection(db, 'users', uid, 'transactions'), orderBy('createdAt', 'asc'));
+  const q     = query(collection(db, 'users', uid, 'transactions'), orderBy('createdAt', 'asc'), limit(11));
   const snaps = await getDocs(q);
-  if (snaps.size > 10) {
-    const excess = snaps.docs.slice(0, snaps.size - 10);
-    await Promise.all(excess.map(d => deleteDoc(d.ref)));
+  if (snaps.size === 11) {
+    await deleteDoc(snaps.docs[0].ref);
   }
 }
 
@@ -792,7 +819,8 @@ window.executeVendorTxn = async () => {
     const newBal = (data.balanceCents || 0) + amtCents;
 
     await updateDoc(ref, { balanceCents: newBal });
-    // Transaction record — silent if permissions not yet updated
+    // Remove from debtors index if now non-negative
+    if (data.balanceCents < 0 && newBal >= 0) await removeDebtor(scannedUID);
     try {
       await addDoc(collection(db, 'users', scannedUID, 'transactions'), {
         type:              'topup',
@@ -818,23 +846,33 @@ window.executeVendorTxn = async () => {
   setLoading('vt-btn-txt', 'vt-spin', 'vt-btn', false);
 };
 
-// ── Vendor: load negative balance list inline ──
+// ── Vendor: load negative balance list from debtors index ──
 async function loadDebtList() {
   const body = $('debt-list-body');
   body.innerHTML = '<div class="debt-empty">Loading...</div>';
   try {
-    const snap = await getDocs(query(collection(db, 'users'), where('balanceCents', '<', 0)));
-    if (snap.empty) {
+    // 1 read: fetch debtors index
+    const indexSnap = await getDoc(debtorsRef());
+    if (!indexSnap.exists() || !(indexSnap.data().uids || []).length) {
       body.innerHTML = '<div class="debt-empty">No negative balances — all clear!</div>';
       return;
     }
-    body.innerHTML = snap.docs.map(d => {
-      const data = d.data();
-      const raw  = data.phone.replace('+65', '');
-      return `<div class="debt-item" onclick="showReset('${d.id}', '${data.phone}', ${data.balanceCents})">
+    const uids = indexSnap.data().uids;
+    // 1 read per debtor — typically a small number
+    const userSnaps = await Promise.all(uids.map(uid => getDoc(doc(db, 'users', uid))));
+    const debtors = userSnaps
+      .filter(s => s.exists() && (s.data().balanceCents || 0) < 0)
+      .map(s => ({ uid: s.id, ...s.data() }));
+    if (!debtors.length) {
+      body.innerHTML = '<div class="debt-empty">No negative balances — all clear!</div>';
+      return;
+    }
+    body.innerHTML = debtors.map(d => {
+      const raw = d.phone.replace('+65', '');
+      return `<div class="debt-item" onclick="showReset('${d.uid}', '${d.phone}', ${d.balanceCents})">
         <div><div class="debt-phone">${fmtPh(raw)}</div></div>
         <div style="display:flex;align-items:center">
-          <div class="debt-amt">-$${fmt(Math.abs(data.balanceCents))}</div>
+          <div class="debt-amt">-$${fmt(Math.abs(d.balanceCents))}</div>
           <div class="debt-arrow">›</div>
         </div>
       </div>`;
@@ -862,9 +900,8 @@ window.executeReset = async () => {
   setStatus('reset-status', '');
   try {
     const ref = doc(db, 'users', resetUID);
-    // Update balance first — always succeeds with vendor rules
     await updateDoc(ref, { balanceCents: 0 });
-    // Write reset transaction — requires updated Firestore rules (see README)
+    await removeDebtor(resetUID);
     try {
       await addDoc(collection(db, 'users', resetUID, 'transactions'), {
         type:              'reset',
@@ -873,9 +910,7 @@ window.executeReset = async () => {
         createdAt:         serverTimestamp()
       });
       await pruneTransactions(resetUID);
-    } catch (_) {
-      // Transaction record failed silently — balance reset still succeeded
-    }
+    } catch (_) {}
     resetUID = null;
     show('s-vendor');
     await loadDebtList();
@@ -929,6 +964,7 @@ window.verifyOTP = async () => {
 
 window.doSignOut = async () => {
   currentUser = null;
+  cachedUserData = null;
   // Clear the reCAPTCHA verifier so it's fresh on next login
   if (window._rcv) { window._rcv.clear(); window._rcv = null; }
   await signOut(auth);
