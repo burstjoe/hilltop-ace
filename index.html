@@ -386,7 +386,6 @@
       <div class="txn-head">Recent transactions</div>
       <div id="u-txn-body"><div class="txn-empty">No transactions yet</div></div>
     </div>
-    <button class="link-btn" id="switch-to-vendor-btn" style="display:none" onclick="togglePreviewMode()">← Switch to vendor view</button>
     <button class="link-btn" onclick="doSignOut()">Sign out</button>
   </div>
 
@@ -418,7 +417,6 @@
     <div class="card debt-list" id="debt-list-body">
       <div class="debt-empty">Loading...</div>
     </div>
-    <button class="link-btn" onclick="togglePreviewMode()">Switch to customer view</button>
     <button class="link-btn" onclick="doSignOut()">Sign out</button>
   </div>
 
@@ -492,7 +490,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, query, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import QRCode from "https://esm.sh/qrcode@1.5.3";
 import { BrowserQRCodeReader } from "https://esm.sh/@zxing/browser@0.1.5";
 
@@ -550,7 +548,6 @@ function clearOTP() { [0,1,2,3,4,5].forEach(i => { $('o'+i).value = ''; }); $('o
   $('o'+i).addEventListener('keydown', e => { if (e.key === 'Backspace' && !e.target.value && i > 0) $('o'+(i-1)).focus(); });
 });
 
-let vendorPreview  = false;   // true = vendor is previewing customer interface
 let currentUser    = null;    // cached after login
 
 let confResult  = null;
@@ -562,11 +559,7 @@ onAuthStateChanged(auth, async user => {
   currentUser = user;
 
   if (VENDOR_PHONES.includes(user.phoneNumber)) {
-    if (vendorPreview) {
-      await renderUserDash(user);
-    } else {
-      showVendorUI();
-    }
+    showVendorUI();
   } else {
     await renderUserDash(user);
   }
@@ -582,15 +575,7 @@ function showVendorUI() {
   loadDebtList();  // always refresh on vendor home load
 }
 
-// ── Toggle between vendor and customer views (vendor accounts only) ──
-window.togglePreviewMode = async () => {
-  vendorPreview = !vendorPreview;
-  if (vendorPreview) {
-    await renderUserDash(currentUser);
-  } else {
-    showVendorUI();
-  }
-};
+
 
 // ── Update balance screen ──
 function updateBalanceScreen(phone, balanceCents) {
@@ -654,10 +639,6 @@ async function renderUserDash(user) {
 
   // Prep balance screen with current data
   updateBalanceScreen(data.phone, data.balanceCents || 0);
-
-  // Show vendor toggle only for vendor accounts in preview mode
-  $('switch-to-vendor-btn').style.display =
-    VENDOR_PHONES.includes(user.phoneNumber) ? 'block' : 'none';
 
   // Reset deduct input
   $('user-deduct-amount').value = '';
@@ -832,9 +813,7 @@ async function loadDebtList() {
   const body = $('debt-list-body');
   body.innerHTML = '<div class="debt-empty">Loading...</div>';
   try {
-    const { collection: col, query: q, where, getDocs: gd } =
-      await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    const snap = await gd(q(col(db, 'users'), where('balanceCents', '<', 0)));
+    const snap = await getDocs(query(collection(db, 'users'), where('balanceCents', '<', 0)));
     if (snap.empty) {
       body.innerHTML = '<div class="debt-empty">No negative balances — all clear!</div>';
       return;
@@ -939,8 +918,7 @@ window.verifyOTP = async () => {
 };
 
 window.doSignOut = async () => {
-  vendorPreview = false;
-  currentUser   = null;
+  currentUser = null;
   // Clear the reCAPTCHA verifier so it's fresh on next login
   if (window._rcv) { window._rcv.clear(); window._rcv = null; }
   await signOut(auth);
