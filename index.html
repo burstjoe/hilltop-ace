@@ -219,6 +219,23 @@
   .txn-amt.topup { color: var(--green); }
   .txn-amt.deduct { color: var(--accent); }
   .txn-empty { padding: 24px; text-align: center; font-size: 13px; color: var(--ink3); }
+  .bal-hidden { font-family: var(--display); font-size: 32px; font-weight: 700; color: rgba(255,255,255,0.25); margin-top: 20px; letter-spacing: 0.1em; }
+  .bal-toggle { font-family: var(--display); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.45); background: none; border: 1px solid rgba(255,255,255,0.2); border-radius: 100px; padding: 6px 14px; cursor: pointer; margin-top: 12px; transition: background 0.15s; }
+  .bal-toggle:hover { background: rgba(255,255,255,0.08); }
+  .bal-amount.negative { color: #F09595; }
+  .debt-list { display: flex; flex-direction: column; }
+  .debt-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.12s; }
+  .debt-item:last-child { border-bottom: none; }
+  .debt-item:hover { background: var(--surface2); }
+  .debt-phone { font-family: var(--display); font-size: 14px; font-weight: 500; color: var(--ink); }
+  .debt-amt { font-family: var(--display); font-size: 14px; font-weight: 700; color: var(--accent); }
+  .debt-empty { padding: 24px; text-align: center; font-size: 13px; color: var(--ink3); }
+  .debt-arrow { font-size: 16px; color: var(--ink3); margin-left: 8px; }
+  .reset-hero { background: var(--accent); border-radius: var(--r); padding: 28px 24px; display: flex; flex-direction: column; gap: 6px; }
+  .reset-hero-label { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+  .reset-hero-phone { font-family: var(--display); font-size: 20px; font-weight: 700; color: #fff; }
+  .reset-hero-bal { font-family: var(--display); font-size: 14px; color: rgba(255,255,255,0.7); margin-top: 4px; }
+  .txn-dot.reset { background: var(--green); }
   .vendor-hero { background: var(--vendor); border-radius: var(--r); padding: 28px 24px; display: flex; flex-direction: column; gap: 6px; }
   .vendor-hero-label { font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.4); }
   .vendor-hero-title { font-family: var(--display); font-size: 22px; font-weight: 700; color: #fff; line-height: 1.2; }
@@ -332,16 +349,34 @@
   <!-- SCREEN: User dashboard -->
   <div class="screen" id="s-user">
     <div class="balance-hero">
-      <div class="bal-label">Available balance</div>
+      <div class="bal-label">Account</div>
       <div class="bal-phone" id="u-phone"></div>
-      <div class="bal-amount"><span class="bal-currency">$</span><span id="u-balance">—</span></div>
+      <div class="bal-hidden" id="u-balance-hidden">••••••</div>
+      <div class="bal-amount" id="u-balance-shown" style="display:none"><span class="bal-currency">$</span><span id="u-balance">—</span></div>
+      <button class="bal-toggle" id="bal-toggle-btn" onclick="toggleBalance()">Show balance</button>
     </div>
     <div class="card">
       <div class="qr-section">
         <div class="qr-label">Your payment QR</div>
         <div id="user-qr"></div>
-        <div class="qr-hint">Show this to the vendor at the counter</div>
+        <div class="qr-hint">Show this to the vendor to top up</div>
       </div>
+    </div>
+    <!-- Deduct section -->
+    <div class="card card-body" style="gap:16px">
+      <div style="font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink2)">Pay with credits</div>
+      <div class="field">
+        <div class="field-label">Amount (SGD)</div>
+        <div class="input-wrap">
+          <div class="input-pre">$</div>
+          <input type="number" id="user-deduct-amount" placeholder="0.00" step="0.01" min="0.01">
+        </div>
+      </div>
+      <div class="status" id="user-deduct-status"></div>
+      <button class="btn btn-accent" onclick="userDeduct()">
+        <span id="user-deduct-btn-txt">Deduct</span>
+        <div class="spin" id="user-deduct-spin"></div>
+      </button>
     </div>
     <div class="card">
       <div class="txn-head">Recent transactions</div>
@@ -354,7 +389,7 @@
   <div class="screen" id="s-vendor">
     <div class="vendor-hero">
       <div class="vendor-hero-label">Vendor mode</div>
-      <div class="vendor-hero-title">Scan customer<br>QR to transact</div>
+      <div class="vendor-hero-title">Scan customer<br>QR to top up</div>
     </div>
     <button class="scan-btn" onclick="openCamera()">
       <div class="scan-icon">
@@ -363,27 +398,56 @@
       <div class="scan-btn-label">Scan customer QR</div>
       <div class="scan-btn-sub">Tap to open camera</div>
     </button>
+    <button class="scan-btn" onclick="showDebtList()" style="border-color:var(--accent);margin-top:0">
+      <div class="scan-icon" style="background:var(--accent-bg)">
+        <svg viewBox="0 0 24 24" style="stroke:var(--accent)"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div class="scan-btn-label" style="color:var(--accent)">Negative balances</div>
+      <div class="scan-btn-sub">View accounts in debt</div>
+    </button>
     <div class="status err" id="vendor-status"></div>
     <button class="link-btn" onclick="togglePreviewMode()">Switch to customer view</button>
     <button class="link-btn" onclick="doSignOut()">Sign out</button>
   </div>
 
-  <!-- SCREEN: Vendor transaction -->
+  <!-- SCREEN: Negative balance list -->
+  <div class="screen" id="s-debt">
+    <div class="vendor-hero" style="background:var(--accent)">
+      <div class="vendor-hero-label">Accounts in debt</div>
+      <div class="vendor-hero-title">Negative balances</div>
+    </div>
+    <div class="card debt-list" id="debt-list-body">
+      <div class="debt-empty">Loading...</div>
+    </div>
+    <button class="link-btn" onclick="show('s-vendor')">← Back</button>
+  </div>
+
+  <!-- SCREEN: Debt reset -->
+  <div class="screen" id="s-reset">
+    <div class="reset-hero">
+      <div class="reset-hero-label">Settle debt</div>
+      <div class="reset-hero-phone" id="reset-phone"></div>
+      <div class="reset-hero-bal" id="reset-bal"></div>
+    </div>
+    <div class="card card-body" style="gap:16px">
+      <div style="font-size:14px;color:var(--ink2);line-height:1.6">Collect cash payment from customer, then tap below to reset their balance to $0.00.</div>
+      <div class="status" id="reset-status"></div>
+      <button class="btn btn-accent" id="reset-btn" onclick="executeReset()">
+        <span id="reset-btn-txt">Reset balance to $0.00</span>
+        <div class="spin" id="reset-spin"></div>
+      </button>
+      <button class="link-btn" onclick="show('s-debt')">← Back to list</button>
+    </div>
+  </div>
+
+  <!-- SCREEN: Vendor top-up -->
   <div class="screen" id="s-vtxn">
     <div class="card">
       <div class="vtxn-phone" id="vt-phone"></div>
       <div class="vtxn-bal" id="vt-bal"></div>
       <div class="vtxn-body">
-        <div class="action-toggle">
-          <div class="action-opt sel-topup" id="opt-topup" onclick="selectAction('topup')">
-            <div class="action-opt-label">Top up</div>
-          </div>
-          <div class="action-opt" id="opt-deduct" onclick="selectAction('deduct')">
-            <div class="action-opt-label">Deduct</div>
-          </div>
-        </div>
         <div class="field">
-          <div class="field-label">Amount (SGD)</div>
+          <div class="field-label">Top-up amount (SGD)</div>
           <div class="input-wrap">
             <div class="input-pre">$</div>
             <input type="number" id="vt-amount" placeholder="0.00" step="0.01" min="0.01">
@@ -485,17 +549,8 @@ function clearOTP() { [0,1,2,3,4,5].forEach(i => { $('o'+i).value = ''; }); $('o
   $('o'+i).addEventListener('keydown', e => { if (e.key === 'Backspace' && !e.target.value && i > 0) $('o'+(i-1)).focus(); });
 });
 
-let vendorAction   = 'topup';
 let vendorPreview  = false;   // true = vendor is previewing customer interface
 let currentUser    = null;    // cached after login
-window.selectAction = type => {
-  vendorAction = type;
-  $('opt-topup').className  = 'action-opt' + (type === 'topup'  ? ' sel-topup'  : '');
-  $('opt-deduct').className = 'action-opt' + (type === 'deduct' ? ' sel-deduct' : '');
-  $('vt-btn').className     = 'btn ' + (type === 'topup' ? 'btn-green' : 'btn-accent');
-  $('vt-btn-txt').textContent = type === 'topup' ? 'Confirm top-up' : 'Confirm deduction';
-  setStatus('vt-status', '');
-};
 
 let confResult  = null;
 let scannedUID  = null;
@@ -537,6 +592,15 @@ window.togglePreviewMode = async () => {
   }
 };
 
+// ── Balance visibility toggle ──
+let balanceVisible = false;
+window.toggleBalance = () => {
+  balanceVisible = !balanceVisible;
+  $('u-balance-hidden').style.display = balanceVisible ? 'none' : 'block';
+  $('u-balance-shown').style.display  = balanceVisible ? 'block' : 'none';
+  $('bal-toggle-btn').textContent     = balanceVisible ? 'Hide balance' : 'Show balance';
+};
+
 // ── Customer dashboard ──
 async function renderUserDash(user) {
   const ref  = doc(db, 'users', user.uid);
@@ -551,16 +615,33 @@ async function renderUserDash(user) {
   }
   const data = snap.data();
   const raw  = data.phone.replace('+65', '');
+  const bal  = data.balanceCents || 0;
 
   $('role-badge').textContent = 'Customer';
   $('role-badge').className   = 'role-badge user';
   $('logo').classList.remove('vendor-mode');
   $('u-phone').textContent    = fmtPh(raw);
-  $('u-balance').textContent  = fmt(data.balanceCents || 0);
+
+  // Balance display — hidden by default, coloured red if negative
+  const balEl = $('u-balance');
+  balEl.textContent = fmt(Math.abs(bal));
+  const balShown = $('u-balance-shown');
+  balShown.querySelector('.bal-currency').textContent = bal < 0 ? '-$' : '$';
+  balShown.className = 'bal-amount' + (bal < 0 ? ' negative' : '');
+
+  // Reset visibility state on each dashboard load
+  balanceVisible = false;
+  $('u-balance-hidden').style.display = 'block';
+  $('u-balance-shown').style.display  = 'none';
+  $('bal-toggle-btn').textContent     = 'Show balance';
 
   // Show "Switch to vendor view" only for vendor accounts in preview mode
   $('switch-to-vendor-btn').style.display =
     VENDOR_PHONES.includes(user.phoneNumber) ? 'block' : 'none';
+
+  // Reset deduct input
+  $('user-deduct-amount').value = '';
+  setStatus('user-deduct-status', '');
 
   // QR code — encodes Firebase UID (no personal data)
   const wrap = $('user-qr');
@@ -580,23 +661,61 @@ async function renderUserDash(user) {
     body.innerHTML = '<div class="txn-empty">No transactions yet</div>';
   } else {
     body.innerHTML = snaps.docs.map(d => {
-      const t     = d.data();
-      const isTop = t.type === 'topup';
-      const ts    = t.createdAt
+      const t   = d.data();
+      const ts  = t.createdAt
         ? new Date(t.createdAt.seconds * 1000).toLocaleString('en-SG', { dateStyle: 'short', timeStyle: 'short' })
         : '—';
+      let dotClass, label, amtClass, amtStr;
+      if (t.type === 'topup') {
+        dotClass = 'topup'; label = 'Top-up'; amtClass = 'topup'; amtStr = `+$${fmt(t.amountCents)}`;
+      } else if (t.type === 'reset') {
+        dotClass = 'reset'; label = 'Balance reset'; amtClass = 'topup'; amtStr = `→ $0.00`;
+      } else {
+        dotClass = 'deduct'; label = 'Deduction'; amtClass = 'deduct'; amtStr = `-$${fmt(t.amountCents)}`;
+      }
       return `<div class="txn-item">
-        <div class="txn-dot ${t.type}"></div>
+        <div class="txn-dot ${dotClass}"></div>
         <div class="txn-info">
-          <div class="txn-type">${isTop ? 'Top-up' : 'Deduction'}</div>
+          <div class="txn-type">${label}</div>
           <div class="txn-time">${ts}</div>
         </div>
-        <div class="txn-amt ${t.type}">${isTop ? '+' : '-'}$${fmt(t.amountCents)}</div>
+        <div class="txn-amt ${amtClass}">${amtStr}</div>
       </div>`;
     }).join('');
   }
   show('s-user');
 }
+
+// ── User self-deduct ──
+window.userDeduct = async () => {
+  const amtCents = cents($('user-deduct-amount').value);
+  if (!amtCents || amtCents <= 0) { setStatus('user-deduct-status', 'Enter a valid amount.', 'err'); return; }
+  setLoading('user-deduct-btn-txt', 'user-deduct-spin', null, true);
+  setStatus('user-deduct-status', '');
+  try {
+    const user = auth.currentUser;
+    const ref  = doc(db, 'users', user.uid);
+    const snap = await getDoc(ref);
+    const data = snap.data();
+    const newBal = (data.balanceCents || 0) - amtCents;
+
+    await updateDoc(ref, { balanceCents: newBal });
+    await addDoc(collection(db, 'users', user.uid, 'transactions'), {
+      type:              'deduct',
+      amountCents:       amtCents,
+      balanceAfterCents: newBal,
+      createdAt:         serverTimestamp()
+    });
+    await pruneTransactions(user.uid);
+
+    // Refresh dashboard with updated data
+    await renderUserDash(user);
+    setStatus('user-deduct-status', `Deducted $${fmt(amtCents)} successfully.`, 'ok');
+  } catch (e) {
+    setStatus('user-deduct-status', e.message || 'Deduction failed. Try again.', 'err');
+  }
+  setLoading('user-deduct-btn-txt', 'user-deduct-spin', null, false);
+};
 
 // ── Camera / QR scan ──
 window.openCamera = async () => {
@@ -655,7 +774,6 @@ async function loadCustomer(uid) {
     $('vt-phone').textContent = fmtPh(data.phone.replace('+65', ''));
     $('vt-bal').textContent   = `Current balance: $${fmt(data.balanceCents || 0)}`;
     $('vt-amount').value      = '';
-    selectAction('topup');
     setStatus('vt-status', '');
     show('s-vtxn');
   } catch (e) {
@@ -673,7 +791,7 @@ async function pruneTransactions(uid) {
   }
 }
 
-// ── Vendor: execute transaction ──
+// ── Vendor: top-up only ──
 window.executeVendorTxn = async () => {
   const amtCents = cents($('vt-amount').value);
   if (!amtCents || amtCents <= 0) { setStatus('vt-status', 'Enter a valid amount.', 'err'); return; }
@@ -686,59 +804,96 @@ window.executeVendorTxn = async () => {
     const ref    = doc(db, 'users', scannedUID);
     const snap   = await getDoc(ref);
     const data   = snap.data();
-    const curBal = data.balanceCents || 0;
-    let newBal;
+    const newBal = (data.balanceCents || 0) + amtCents;
 
-    if (vendorAction === 'topup') {
-      // Top-up: add full amount
-      newBal = curBal + amtCents;
-      await updateDoc(ref, { balanceCents: newBal });
-      await addDoc(collection(db, 'users', scannedUID, 'transactions'), {
-        type:              'topup',
-        amountCents:       amtCents,
-        balanceAfterCents: newBal,
-        createdAt:         serverTimestamp()
-      });
-      await pruneTransactions(scannedUID);
+    await updateDoc(ref, { balanceCents: newBal });
+    await addDoc(collection(db, 'users', scannedUID, 'transactions'), {
+      type:              'topup',
+      amountCents:       amtCents,
+      balanceAfterCents: newBal,
+      createdAt:         serverTimestamp()
+    });
+    await pruneTransactions(scannedUID);
 
-      $('suc-pip').className      = 'success-pip topup';
-      $('suc-pip').textContent    = '↑';
-      $('suc-title').textContent  = 'Top-up done';
-      $('suc-detail').textContent = `+$${fmt(amtCents)}\n${$('vt-phone').textContent}`;
-      $('suc-bal').textContent    = `New balance: $${fmt(newBal)}`;
-
-    } else {
-      // Deduct: use available credits first, remainder is cash
-      const creditDeducted = Math.min(amtCents, curBal);
-      const cashOwed       = amtCents - creditDeducted;
-      newBal               = curBal - creditDeducted;
-
-      await updateDoc(ref, { balanceCents: newBal });
-      await addDoc(collection(db, 'users', scannedUID, 'transactions'), {
-        type:              'deduct',
-        amountCents:       creditDeducted,
-        balanceAfterCents: newBal,
-        createdAt:         serverTimestamp()
-      });
-      await pruneTransactions(scannedUID);
-
-      $('suc-pip').className      = 'success-pip deduct';
-      $('suc-pip').textContent    = '↓';
-      $('suc-title').textContent  = cashOwed > 0 ? 'Partial deduction' : 'Deduction done';
-      $('suc-detail').textContent = cashOwed > 0
-        ? `$${fmt(creditDeducted)} credits deducted\nCollect $${fmt(cashOwed)} cash`
-        : `-$${fmt(creditDeducted)}\n${$('vt-phone').textContent}`;
-      $('suc-bal').textContent    = `New balance: $${fmt(newBal)}`;
-    }
-
+    $('suc-pip').className      = 'success-pip topup';
+    $('suc-pip').textContent    = '↑';
+    $('suc-title').textContent  = 'Top-up done';
+    $('suc-detail').textContent = `+$${fmt(amtCents)}\n${$('vt-phone').textContent}`;
+    $('suc-bal').textContent    = `New balance: $${fmt(newBal)}`;
     scannedUID = null;
     show('s-success');
 
   } catch (e) {
-    setStatus('vt-status', e.message || 'Transaction failed. Please try again.', 'err');
+    setStatus('vt-status', e.message || 'Top-up failed. Please try again.', 'err');
   }
 
   setLoading('vt-btn-txt', 'vt-spin', 'vt-btn', false);
+};
+
+// ── Vendor: negative balance list ──
+window.showDebtList = async () => {
+  show('s-debt');
+  const body = $('debt-list-body');
+  body.innerHTML = '<div class="debt-empty">Loading...</div>';
+  try {
+    const { collection: col, query: q, where, getDocs: gd } =
+      await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const snap = await gd(q(col(db, 'users'), where('balanceCents', '<', 0)));
+    if (snap.empty) {
+      body.innerHTML = '<div class="debt-empty">No negative balances — all clear!</div>';
+      return;
+    }
+    body.innerHTML = snap.docs.map(d => {
+      const data = d.data();
+      const raw  = data.phone.replace('+65', '');
+      return `<div class="debt-item" onclick="showReset('${d.id}', '${data.phone}', ${data.balanceCents})">
+        <div>
+          <div class="debt-phone">${fmtPh(raw)}</div>
+        </div>
+        <div style="display:flex;align-items:center">
+          <div class="debt-amt">-$${fmt(Math.abs(data.balanceCents))}</div>
+          <div class="debt-arrow">›</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    body.innerHTML = '<div class="debt-empty">Error loading list. Try again.</div>';
+  }
+};
+
+// ── Vendor: show reset screen for a specific user ──
+let resetUID = null;
+window.showReset = (uid, phone, balanceCents) => {
+  resetUID = uid;
+  const raw = phone.replace('+65', '');
+  $('reset-phone').textContent = fmtPh(raw);
+  $('reset-bal').textContent   = `Current balance: -$${fmt(Math.abs(balanceCents))}`;
+  setStatus('reset-status', '');
+  show('s-reset');
+};
+
+// ── Vendor: execute balance reset to zero ──
+window.executeReset = async () => {
+  if (!resetUID) return;
+  setLoading('reset-btn-txt', 'reset-spin', 'reset-btn', true);
+  setStatus('reset-status', '');
+  try {
+    const ref = doc(db, 'users', resetUID);
+    await updateDoc(ref, { balanceCents: 0 });
+    await addDoc(collection(db, 'users', resetUID, 'transactions'), {
+      type:              'reset',
+      amountCents:       0,
+      balanceAfterCents: 0,
+      createdAt:         serverTimestamp()
+    });
+    await pruneTransactions(resetUID);
+    resetUID = null;
+    // Refresh debt list
+    await showDebtList();
+  } catch (e) {
+    setStatus('reset-status', e.message || 'Reset failed. Try again.', 'err');
+    setLoading('reset-btn-txt', 'reset-spin', 'reset-btn', false);
+  }
 };
 
 // ── OTP login ──
