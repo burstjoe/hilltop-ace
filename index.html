@@ -559,7 +559,7 @@ onAuthStateChanged(auth, async user => {
   currentUser = user;
 
   if (VENDOR_PHONES.includes(user.phoneNumber)) {
-    showVendorUI();
+    await showVendorUI();
   } else {
     // setDoc merge works on both new and existing docs
     try { await setDoc(doc(db, 'users', user.uid), { isVendor: false }, { merge: true }); } catch(_) {}
@@ -569,10 +569,25 @@ onAuthStateChanged(auth, async user => {
 
 // ── Vendor UI ──
 async function showVendorUI() {
-  // Await isVendor write before showing UI — ensures rules pass before any writes
   if (currentUser) {
-    // updateDoc is safe here — vendor doc always exists by the time showVendorUI runs
-    try { await updateDoc(doc(db, 'users', currentUser.uid), { isVendor: true }); } catch(_) {}
+    try {
+      const vendorRef  = doc(db, 'users', currentUser.uid);
+      const vendorSnap = await getDoc(vendorRef);
+      if (!vendorSnap.exists()) {
+        // First login — create full document
+        await setDoc(vendorRef, {
+          phone:        currentUser.phoneNumber || '',
+          isVendor:     true,
+          balanceCents: 0,
+          createdAt:    serverTimestamp()
+        });
+      } else {
+        // Existing document — just ensure isVendor is true
+        await updateDoc(vendorRef, { isVendor: true });
+      }
+    } catch(e) {
+      console.error('Vendor doc write failed:', e.message);
+    }
   }
   $('role-badge').textContent = 'Vendor';
   $('role-badge').className   = 'role-badge vendor';
