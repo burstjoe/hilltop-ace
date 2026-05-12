@@ -561,8 +561,6 @@ onAuthStateChanged(auth, async user => {
   if (VENDOR_PHONES.includes(user.phoneNumber)) {
     await showVendorUI();
   } else {
-    // setDoc merge works on both new and existing docs
-    try { await setDoc(doc(db, 'users', user.uid), { isVendor: false }, { merge: true }); } catch(_) {}
     await renderUserDash(user);
   }
 });
@@ -644,11 +642,17 @@ async function renderUserDash(user) {
   const ref  = doc(db, 'users', user.uid);
   let   snap = await getDoc(ref);
   if (!snap.exists()) {
+    // New user — create full document including isVendor: false
     await setDoc(ref, {
       phone:        user.phoneNumber,
       balanceCents: 0,
+      isVendor:     false,
       createdAt:    serverTimestamp()
     });
+    snap = await getDoc(ref);
+  } else if (snap.data().isVendor === undefined) {
+    // Existing user missing isVendor field — backfill it
+    await updateDoc(ref, { isVendor: false });
     snap = await getDoc(ref);
   }
   const data = snap.data();
