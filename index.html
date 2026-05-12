@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Hilltop Cafe Credits</title>
+<title>Hilltop ACE Credits</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700&family=Instrument+Sans:wght@300;400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -291,7 +291,7 @@
 <body>
 
 <header>
-  <div class="logo" id="logo"><div class="logo-pip"></div>Hilltop Cafe Credits</div>
+  <div class="logo" id="logo"><div class="logo-pip"></div>Hilltop ACE Credits</div>
   <div class="role-badge" id="role-badge"></div>
 </header>
 
@@ -561,17 +561,18 @@ onAuthStateChanged(auth, async user => {
   if (VENDOR_PHONES.includes(user.phoneNumber)) {
     showVendorUI();
   } else {
-    // Explicitly set isVendor false so Firestore rules never see a missing field
-    updateDoc(doc(db, 'users', user.uid), { isVendor: false }).catch(() => {});
+    // setDoc merge works on both new and existing docs
+    try { await setDoc(doc(db, 'users', user.uid), { isVendor: false }, { merge: true }); } catch(_) {}
     await renderUserDash(user);
   }
 });
 
 // ── Vendor UI ──
-function showVendorUI() {
-  // Auto-set isVendor flag so Firestore rules pass for this account
+async function showVendorUI() {
+  // Await isVendor write before showing UI — ensures rules pass before any writes
   if (currentUser) {
-    updateDoc(doc(db, 'users', currentUser.uid), { isVendor: true }).catch(() => {});
+    // updateDoc is safe here — vendor doc always exists by the time showVendorUI runs
+    try { await updateDoc(doc(db, 'users', currentUser.uid), { isVendor: true }); } catch(_) {}
   }
   $('role-badge').textContent = 'Vendor';
   $('role-badge').className   = 'role-badge vendor';
